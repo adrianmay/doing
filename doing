@@ -3,11 +3,24 @@
 act=$1
 l=$2
 
+if ! [ -f ~/.doing/acts ]
+then
+  echo "Enter some activities into ~/.doing/acts"
+  echo "That would be just activity names on lines"
+  echo "If an activity starts with _ then it's unbillable"
+  exit 1
+fi
+
 if [ -z "$act" ]; then 
-  cat ~/.doing/transitions | did
-    is=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 1`
-    [ -n "$is" ] && echo "Now doing $is"
-  exit 0
+  if [ -f ~/.doing/transitions ]
+  then
+    cat ~/.doing/transitions | did
+      is=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 1`
+      [ -n "$is" ] && echo "Now doing $is"
+    exit 0
+  else
+    echo "Use \`doing <activity> [<minutes-ago>]\` then some details then Ctrl-D to start doing something"
+  fi
 fi
 
 late=${l:=0}

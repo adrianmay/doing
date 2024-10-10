@@ -4,28 +4,30 @@ act=$1
 l=$2
 
 if [ -z "$act" ]; then 
-  cat /var/doing/transitions | did
-  echo "Now doing `tail -n 1 /var/doing/transitions | cut -f 1`"
+  cat ~/.doing/transitions | did
+    is=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 1`
+    [ -n "$is" ] && echo "Now doing $is"
   exit 0
 fi
 
 late=${l:=0}
 
-acts=(`grep $act /var/doing/acts`)
+acts=(`grep $act ~/.doing/acts`)
 
 case "${#acts[@]}" in
   0) 
-    echo "No matching activity in /var/doing/acts"
+    echo "No matching activity in ~/.doing/acts"
     ;;
   1) 
     msg=`cat -`
     line="${acts[0]}\t`date --date "-$late min" --iso-8601=seconds`\t$msg"
-    echo "Was doing `tail -n 1 /var/doing/transitions | cut -f 1`"
+    was=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 1`
+    [ -n "$was" ] && echo "Was doing $was"
     echo -e $line
-    echo -e $line >> /var/doing/transitions
+    echo -e $line >> ~/.doing/transitions
     ;;
   *)
-    echo "Multiple matches in /var/doing/acts: ${acts[@]}" 
+    echo "Multiple matches in ~/.doing/acts: ${acts[@]}" 
     ;;
 esac
 

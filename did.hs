@@ -4,7 +4,7 @@ import Data.Char
 import Data.List (foldl', sortBy)
 import Data.List.Split (splitWhen)
 import Data.Map.Strict (Map)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromMaybe)
 import Data.Ord (comparing)
 import Data.Time.Calendar (Year, MonthOfYear, Day, toGregorian)
 import Data.Time.Clock (nominalDiffTimeToSeconds)
@@ -55,7 +55,7 @@ parseTransition s =
   let l = splitWhen (=='\t') s
    in if length l == 2 || length l == 3
       then
-         let t :: LocalTime = roundLocalTime $ fromJust $ iso8601ParseM (takeWhile (/='+') (l!!1)) -- FIXME fromJust
+         let t :: LocalTime = roundLocalTime $ fromMaybe (error $ "Can't parse date: " <> (l!!1)) $ iso8601ParseM (takeWhile (/='+') (l!!1))
           in Trans (l!!0) t (if length l == 3 then l!!2 else "")
       else error "Bad raw input in transition"
 

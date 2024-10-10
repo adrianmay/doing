@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables
-#-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 import Data.Time.LocalTime
 import Text.Printf
@@ -16,9 +15,6 @@ import Debug.Trace
 import Data.Maybe
 import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map)
-
-traceme :: Show a => String -> a -> a
-traceme s a = trace (s <> show a) a
 
 data Trans = Trans
   { tAct    :: String 
@@ -83,9 +79,8 @@ toFromTos ts =
   let z = zip ts (drop 1 ts)
    in (\(Trans a1 t1 _, Trans _ t2 desc) -> (FromTo a1 (t1, t2) desc) ) <$> z
 
-
-toMapBy :: forall a k v. Ord k => (a -> k) -> (a -> v) -> [a] -> Map k [v] -- slow but a small collection usually (cos transistions gets cleaned up every month)
-toMapBy key val as = foldr ( \a mp -> M.insertWith (++) (key a) [val a] mp) M.empty as
+toMapBy :: forall a k v. Ord k => (a -> k) -> (a -> v) -> [a] -> Map k [v] -- slow but a small collection usually (cos transistions gets cleaned up regularly)
+toMapBy key val as = foldr ( \a mp -> M.insertWith (++) (key a) [val a] mp) M.empty as -- foldr is questionable, but likewise about the sizes, plus it preserves the order
 
 addUp :: [Stint] -> (Int, [Stint])
 addUp ss = let t = foldl' (\tot (Stint d _ _) -> tot+d) 0 ss in (t,ss)

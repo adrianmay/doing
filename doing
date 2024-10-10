@@ -5,6 +5,7 @@ l=$2
 
 if [ -z "$act" ]; then 
   cat /var/doing/transitions | did
+  echo "Now doing `tail -n 1 /var/doing/transitions | cut -f 1`"
   exit 0
 fi
 
@@ -19,6 +20,7 @@ case "${#acts[@]}" in
   1) 
     msg=`cat -`
     line="${acts[0]}\t`date --date "-$late min" --iso-8601=seconds`\t$msg"
+    echo "Was doing `tail -n 1 /var/doing/transitions | cut -f 1`"
     echo -e $line
     echo -e $line >> /var/doing/transitions
     ;;

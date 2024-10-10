@@ -14,9 +14,11 @@ The activity `0` means you are doing nothing worth tracking.
 
 There's a list of declared activities to guard against typos. You can enter a substring of an activity name and it'll work if there's exactly one match in that list.
 
-If you enter `doing` with no parameters it'll print a report organised by month, then by activity, with a row for each stint showing start and finishing times, the duration and the details. The project header line shows the total time on that activity in than month. 0 is excluded from the report.
+An activity is billable if its name in `~/.doing/acts` does not begin with _. 
 
-If you don't report an activity to your client, start the name with _ in ~/.doing/acts. These will be grouped together at the end of the month so you can easily copy-paste the billable projects with the month header.
+If you enter `doing` with no parameters it'll print a report organised by month, then by activity, with a row for each stint showing start and finishing times, the duration and the details. 0 is excluded from the report. Billable activities are listed first in each month.
+
+The activity header line shows the total time on that activity in that month and the month header line shows the total for all billable activities.
 
 ## Installation
 

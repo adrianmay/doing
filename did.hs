@@ -84,24 +84,14 @@ addUp :: (a -> Int) -> [a] -> (Int, [a])
 addUp f ss = let t = foldl' (\tot a -> tot + f a) 0 ss in (t,ss)
 
 printAll :: Map (Year, MonthOfYear) (Map String (Int, [Stint])) -> IO ()
-printAll mp =  sequence_ $ M.mapWithKey printMonth mp
-
---  let yms :: (Year, MonthOfYear), (Map String (Int, [Stint])) 
---           = M.toList mp
---      ams :: Map String (Int, [Stint])    
---           = snd <$> yms
---       is :: [Int]    
---           = M.toList
---
---      tot = addUp $ $ snd <$> ms
---   in mapM_ (uncurry printMonth) ms
+printAll mp =  mapM_ (uncurry printMonth) $ sortBy (comparing fst) $ M.toList mp
 
 printMonth :: (Year, MonthOfYear) ->  Map String (Int, [Stint]) -> IO ()
 printMonth (y,m) mp = 
   let ams  :: [(String, (Int, [Stint]))] = M.toList mp
-      nzms                               = filter ((/="0") . fst) ams
-      bms                                = filter ((/='_') . (!!0) . fst) nzms
-      tot  :: Int              = fst $ addUp fst $ snd <$> bms
+      nzms  = filter ((/="0") . fst) ams
+      bms   = filter ((/='_') . (!!0) . fst) nzms
+      tot  :: Int = fst $ addUp fst $ snd <$> bms
   in do
     putStrLn $ "=======  " <> snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> ": " <> myFormatDiffTimeLong tot <> "  ======"
     mapM_ printAct $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms

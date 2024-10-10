@@ -12,14 +12,15 @@ then
 fi
 
 if [ -z "$act" ]; then 
-  if [ -f ~/.doing/transitions ]
+  if ! [ -f ~/.doing/transitions ]
   then
-    cat ~/.doing/transitions | did
-      is=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 1`
-      [ -n "$is" ] && echo "Now doing ${is#_}"
-    exit 0
+    echo "Enter \`doing <activity> [<minutes-ago>]\` (where <activity> is listed in ~/.doing/acts), then some details, then Ctrl-D to start doing something."
+    exit 1
   else
-    echo "Use \`doing <activity> [<minutes-ago>]\` then some details then Ctrl-D to start doing something."
+    cat ~/.doing/transitions | did
+    is=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 1`
+    [ -n "$is" ] && echo "Now doing ${is#_}"
+    exit 0
   fi
 fi
 
@@ -30,6 +31,7 @@ readarray -t acts < <(grep $act ~/.doing/acts)
 case "${#acts[@]}" in
   0) 
     echo "No matching activity in ~/.doing/acts"
+    exit 1
     ;;
   1) 
     msg=`cat -`
@@ -37,9 +39,11 @@ case "${#acts[@]}" in
     was=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 1`
     [ -n "$was" ] && echo "Was doing ${was#_}"
     echo -e $line | tee -a ~/.doing/transitions
+    exit 0
     ;;
   *)
     echo "Multiple matches in ~/.doing/acts: ${acts[@]}" 
+    exit 1
     ;;
 esac
 

@@ -1,21 +1,21 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import Data.Time.LocalTime
-import Text.Printf
-import Control.Arrow
+import Data.Char
+import Data.List
+import Data.List.Split
+import Data.Map.Strict (Map)
+import Data.Maybe
+import Data.Ord (comparing)
 import Data.Time.Calendar
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
-import Data.Time.Format.ISO8601
 import Data.Time.Format
+import Data.Time.Format.ISO8601
 import Data.Time.ISO8601
-import Data.List.Split
-import Data.List
-import Data.Ord (comparing)
+import Data.Time.LocalTime
 import Debug.Trace
-import Data.Maybe
+import Text.Printf
 import qualified Data.Map.Strict as M
-import Data.Map.Strict (Map)
 
 data Trans = Trans
   { tAct    :: String 
@@ -58,7 +58,7 @@ main = do
       byAct   :: Map (Year, MonthOfYear) (Map String [Stint])
                = toMapBy fAct mkStint <$> byMonth
       withTot :: Map (Year, MonthOfYear) (Map String (Int, [Stint]))
-               = M.map addUp <$> byAct -- broken laziness but who cares - the data is small
+               = M.map (addUp sMinutes) <$> byAct -- broken laziness but who cares - the data is small
   printAll withTot
 
 parseTransition :: String -> Trans
@@ -80,23 +80,38 @@ toFromTos ts =
 toMapBy :: forall a k v. Ord k => (a -> k) -> (a -> v) -> [a] -> Map k [v] -- slow but a small collection usually (cos transistions gets cleaned up regularly)
 toMapBy key val as = foldr ( \a mp -> M.insertWith (++) (key a) [val a] mp) M.empty as -- foldr is questionable, but likewise about the sizes, plus it preserves the order
 
-addUp :: [Stint] -> (Int, [Stint])
-addUp ss = let t = foldl' (\tot (Stint d _ _) -> tot+d) 0 ss in (t,ss)
+addUp :: (a -> Int) -> [a] -> (Int, [a])
+addUp f ss = let t = foldl' (\tot a -> tot + f a) 0 ss in (t,ss)
 
 printAll :: Map (Year, MonthOfYear) (Map String (Int, [Stint])) -> IO ()
-printAll mp = sequence_ $ M.mapWithKey printMonth mp
+printAll mp =  sequence_ $ M.mapWithKey printMonth mp
+
+--  let yms :: (Year, MonthOfYear), (Map String (Int, [Stint])) 
+--           = M.toList mp
+--      ams :: Map String (Int, [Stint])    
+--           = snd <$> yms
+--       is :: [Int]    
+--           = M.toList
+--
+--      tot = addUp $ $ snd <$> ms
+--   in mapM_ (uncurry printMonth) ms
 
 printMonth :: (Year, MonthOfYear) ->  Map String (Int, [Stint]) -> IO ()
-printMonth (y,m) mp = do
-  putStrLn $ "=======  " <> snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> "  ======"
-  mapM_ printAct $ sortBy (comparing (\(k,_)-> (k!!0)==' ')) $ M.toList mp
+printMonth (y,m) mp = 
+  let ams  :: [(String, (Int, [Stint]))] = M.toList mp
+      nzms                               = filter ((/="0") . fst) ams
+      bms                                = filter ((/='_') . (!!0) . fst) nzms
+      tot  :: Int              = fst $ addUp fst $ snd <$> bms
+  in do
+    putStrLn $ "=======  " <> snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> ": " <> myFormatDiffTimeLong tot <> "  ======"
+    mapM_ printAct $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
 
 printAct :: (String, (Int, [Stint])) -> IO ()
 printAct (act,(tot,stints)) = do
   if act=="0" then pure () else do
-    putStrLn ("------  " <> act <> " (" <> myFormatDiffTimeLong tot <> ")  ------")
-    mapM_ printStint stints 
     putStrLn ""
+    putStrLn ("------  " <> dropWhile (=='_') act <> " (" <> myFormatDiffTimeLong tot <> ")  ------")
+    mapM_ printStint stints 
 
 printStint :: Stint -> IO ()
 printStint (Stint dur (f,t) desc) = 

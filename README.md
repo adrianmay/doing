@@ -16,7 +16,7 @@ There's a list of declared activities to guard against typos. You can enter a su
 
 If you enter `doing` with no parameters it'll print a report organised by month, then by activity, with a row for each stint showing start and finishing times, the duration and the details. The project header line shows the total time on that activity in than month. 0 is excluded from the report.
 
-If you don't report an activity to your client, start the name with a space in ~/.doing/acts. These will be grouped together at the end of the month so you can easily copy-paste the billable projects.
+If you don't report an activity to your client, start the name with _ in ~/.doing/acts. These will be grouped together at the end of the month so you can easily copy-paste the billable projects with the month header.
 
 ## Installation
 
@@ -25,7 +25,7 @@ If you don't report an activity to your client, start the name with a space in ~
 1. `make`
 1. Create a directory `~/.doing`
 1. Create a file in there called `acts` with a line per activity containing simply its name. `0` must be included.
-1. Your transitions will be stored in `~/.doing/transitions`.
+1. Your transitions will be stored in `~/.doing/transitions`. The format is self-explanatory so you can edit them.
 1. You should occasionally delete old transitions to keep performance up.
 
 

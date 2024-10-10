@@ -1,0 +1,29 @@
+#!/usr/bin/bash
+#
+act=$1
+l=$2
+
+if [ -z "$act" ]; then 
+  cat /var/doing/transitions | did
+  exit 0
+fi
+
+late=${l:=0}
+
+acts=(`grep $act /var/doing/acts`)
+
+case "${#acts[@]}" in
+  0) 
+    echo "No matching activity in /var/doing/acts"
+    ;;
+  1) 
+    msg=`cat -`
+    line="${acts[0]}\t`date --date "-$late min" --iso-8601=seconds`\t$msg"
+    echo -e $line
+    echo -e $line >> /var/doing/transitions
+    ;;
+  *)
+    echo "Multiple matches in /var/doing/acts: ${acts[@]}" 
+    ;;
+esac
+

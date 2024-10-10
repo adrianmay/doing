@@ -35,18 +35,6 @@ data Stint = Stint
   , sDesc     :: String
   } 
 
-localTimeToYearMonth :: LocalTime -> (Year, MonthOfYear)
-localTimeToYearMonth t = (\(y,m,_)->(y,m)) $ toGregorian $ localDay t
-
-fromToToYearMonth :: FromTo -> (Year, MonthOfYear)
-fromToToYearMonth (FromTo _ (f,t) _) = localTimeToYearMonth f
-
-mkStint :: FromTo -> Stint
-mkStint (FromTo _ (f,t) d) =
-  Stint ((`div` 60) $ floor $ nominalDiffTimeToSeconds $ diffLocalTime t f)
-        (f,t)
-        d
-
 main = do
   l :: [String] <- lines <$> getContents 
   let ps      :: [Trans]
@@ -60,6 +48,7 @@ main = do
       withTot :: Map (Year, MonthOfYear) (Map String (Int, [Stint]))
                = M.map (addUp sMinutes) <$> byAct -- broken laziness but who cares - the data is small
   printAll withTot
+  putStrLn ""
 
 parseTransition :: String -> Trans
 parseTransition s =
@@ -77,11 +66,23 @@ toFromTos ts =
   let z = zip ts (drop 1 ts)
    in (\(Trans a1 t1 _, Trans _ t2 desc) -> (FromTo a1 (t1, t2) desc) ) <$> z
 
+fromToToYearMonth :: FromTo -> (Year, MonthOfYear)
+fromToToYearMonth (FromTo _ (f,t) _) = localTimeToYearMonth f
+
+localTimeToYearMonth :: LocalTime -> (Year, MonthOfYear)
+localTimeToYearMonth t = (\(y,m,_)->(y,m)) $ toGregorian $ localDay t
+
+mkStint :: FromTo -> Stint
+mkStint (FromTo _ (f,t) d) =
+  Stint ((`div` 60) $ floor $ nominalDiffTimeToSeconds $ diffLocalTime t f) (f,t)
+        d
+
 toMapBy :: forall a k v. Ord k => (a -> k) -> (a -> v) -> [a] -> Map k [v] -- slow but a small collection usually (cos transistions gets cleaned up regularly)
 toMapBy key val as = foldr ( \a mp -> M.insertWith (++) (key a) [val a] mp) M.empty as -- foldr is questionable, but likewise about the sizes, plus it preserves the order
 
 addUp :: (a -> Int) -> [a] -> (Int, [a])
 addUp f ss = let t = foldl' (\tot a -> tot + f a) 0 ss in (t,ss)
+
 
 printAll :: Map (Year, MonthOfYear) (Map String (Int, [Stint])) -> IO ()
 printAll mp =  mapM_ (uncurry printMonth) $ sortBy (comparing fst) $ M.toList mp
@@ -93,29 +94,30 @@ printMonth (y,m) mp =
       bms   = filter ((/='_') . (!!0) . fst) nzms
       tot  :: Int = fst $ addUp fst $ snd <$> bms
   in do
-    putStrLn $ "=======  " <> snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> ": " <> myFormatDiffTimeLong tot <> "  ======"
+    putStrLn "-----------------------------------------"
+    putStrLn $ snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> ": " <> showDurationsLong tot
+    putStrLn "-----------------------------------------"
     mapM_ printAct $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
 
 printAct :: (String, (Int, [Stint])) -> IO ()
-printAct (act,(tot,stints)) = do
-  if act=="0" then pure () else do
-    putStrLn ""
-    putStrLn ("------  " <> dropWhile (=='_') act <> " (" <> myFormatDiffTimeLong tot <> ")  ------")
-    mapM_ printStint stints 
+printAct (act_,(tot,stints)) = do
+  let act = if (act_!!0) == '_' then drop 1 act_ <> " (unbillable)" else act_
+  putStrLn ""
+  putStrLn (act <> ": " <> showDurationsLong tot)
+  mapM_ printStint stints 
 
 printStint :: Stint -> IO ()
 printStint (Stint dur (f,t) desc) = 
  let (fd,ft) = (localDay f, localTimeOfDay f) 
      (_ ,tt) = (localDay t, localTimeOfDay t) 
-  in putStrLn $ showDate fd <> "  |  " <> showTimeShort ft <> " -> " <> showTimeShort tt <> " = " <> myFormatDiffTimeShort dur <> "  |  " <> desc
+  in putStrLn $ "   " <> showDate fd <> "  |  " <> showTimeShort ft <> " -> " <> showTimeShort tt <> " = " <> showDurationShort dur <> "  |  " <> desc
       
 showDate = formatTime defaultTimeLocale "%a %e"      
 showTimeShort = formatTime defaultTimeLocale "%H:%M"      
 
-myFormatDiffTimeLong :: Int -> String
-myFormatDiffTimeLong minutes = show (minutes `div` 60) <> " hours and " <> show (minutes `mod` 60) <> " minutes"
+showDurationsLong :: Int -> String
+showDurationsLong minutes = show (minutes `div` 60) <> " hours and " <> show (minutes `mod` 60) <> " minutes"
 
-myFormatDiffTimeShort :: Int -> String
-myFormatDiffTimeShort minutes = printf "%02d" (minutes `div` 60) <> ":" <> printf "%02d" (minutes `mod` 60)
+showDurationShort :: Int -> String
+showDurationShort minutes = printf "%02d" (minutes `div` 60) <> ":" <> printf "%02d" (minutes `mod` 60)
   
-

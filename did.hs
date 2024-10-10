@@ -1,21 +1,19 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import Data.Char
-import Data.List
-import Data.List.Split
+import Data.List (foldl', sortBy)
+import Data.List.Split (splitWhen)
 import Data.Map.Strict (Map)
-import Data.Maybe
+import Data.Maybe (fromJust)
 import Data.Ord (comparing)
-import Data.Time.Calendar
-import Data.Time.Clock
-import Data.Time.Clock.POSIX
-import Data.Time.Format
-import Data.Time.Format.ISO8601
-import Data.Time.ISO8601
-import Data.Time.LocalTime
-import Debug.Trace
-import Text.Printf
+import Data.Time.Calendar (Year, MonthOfYear, Day, toGregorian)
+import Data.Time.Clock (nominalDiffTimeToSeconds)
+import Data.Time.Format (months, defaultTimeLocale, formatTime)
+import Data.Time.Format.ISO8601 (iso8601ParseM)
+import Data.Time.LocalTime (LocalTime(..), TimeOfDay(..), diffLocalTime)
+import Text.Printf (printf)
 import qualified Data.Map.Strict as M
+
 
 data Trans = Trans
   { tAct    :: String 
@@ -35,6 +33,7 @@ data Stint = Stint
   , sDesc     :: String
   } 
 
+
 main = do
   l :: [String] <- lines <$> getContents 
   let ps      :: [Trans]
@@ -49,6 +48,7 @@ main = do
                = M.map (addUp sMinutes) <$> byAct -- broken laziness but who cares - the data is small
   printAll withTot
   putStrLn ""
+
 
 parseTransition :: String -> Trans
 parseTransition s =
@@ -106,17 +106,20 @@ printAct (act_,(tot,stints)) = do
   putStrLn (act <> ": " <> showDurationsLong tot)
   mapM_ printStint stints 
 
+showDurationsLong :: Int -> String
+showDurationsLong minutes = show (minutes `div` 60) <> " hours and " <> show (minutes `mod` 60) <> " minutes"
+
 printStint :: Stint -> IO ()
 printStint (Stint dur (f,t) desc) = 
  let (fd,ft) = (localDay f, localTimeOfDay f) 
      (_ ,tt) = (localDay t, localTimeOfDay t) 
   in putStrLn $ "   " <> showDate fd <> "  |  " <> showTimeShort ft <> " -> " <> showTimeShort tt <> " = " <> showDurationShort dur <> "  |  " <> desc
       
+showDate :: Day -> String      
 showDate = formatTime defaultTimeLocale "%a %e"      
-showTimeShort = formatTime defaultTimeLocale "%H:%M"      
 
-showDurationsLong :: Int -> String
-showDurationsLong minutes = show (minutes `div` 60) <> " hours and " <> show (minutes `mod` 60) <> " minutes"
+showTimeShort :: TimeOfDay -> String 
+showTimeShort = formatTime defaultTimeLocale "%H:%M"      
 
 showDurationShort :: Int -> String
 showDurationShort minutes = printf "%02d" (minutes `div` 60) <> ":" <> printf "%02d" (minutes `mod` 60)

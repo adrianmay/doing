@@ -12,11 +12,11 @@ It will then wait for you to add some details of the activity that just *finishe
 
 The activity `0` means you are doing nothing worth tracking.
 
-You must always be doing `0` at midnight or it'll bail out. If you forget to clock-out in the evening, you can directly edit the self-explanatory transitions list. I could fix this if people found it annoying.
-
 There's a list of declared activities to guard against typos. You can enter a substring of an activity name and it'll work if there's exactly one match in that list.
 
-If you enter `doing` with no parameters it'll print a report organised by month, then by activity, with a row for each stint showing start and finishing times, the duration and the details. The project header line shows the total time on that activity in than month.
+If you enter `doing` with no parameters it'll print a report organised by month, then by activity, with a row for each stint showing start and finishing times, the duration and the details. The project header line shows the total time on that activity in than month. 0 is excluded from the report.
+
+If you don't report an activity to your client, start the name with a space in /var/doing/acts. These will be grouped together at the end of the month so you can easily copy-paste the billable projects.
 
 ## Installation
 

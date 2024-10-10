@@ -11,6 +11,7 @@ import Data.Time.Format
 import Data.Time.ISO8601
 import Data.List.Split
 import Data.List
+import Data.Ord (comparing)
 import Debug.Trace
 import Data.Maybe
 import qualified Data.Map.Strict as M
@@ -38,10 +39,7 @@ localTimeToYearMonth :: LocalTime -> (Year, MonthOfYear)
 localTimeToYearMonth t = (\(y,m,_)->(y,m)) $ toGregorian $ localDay t
 
 fromToToYearMonth :: FromTo -> (Year, MonthOfYear)
-fromToToYearMonth (FromTo _ (f,t) _) = 
-  let fym = localTimeToYearMonth f
-      tym = localTimeToYearMonth t
-   in if fym /= tym then error "Stint over month change" else fym    
+fromToToYearMonth (FromTo _ (f,t) _) = localTimeToYearMonth f
 
 mkStint :: FromTo -> Stint
 mkStint (FromTo _ (f,t) d) =
@@ -90,22 +88,21 @@ printAll mp = sequence_ $ M.mapWithKey printMonth mp
 
 printMonth :: (Year, MonthOfYear) ->  Map String (Int, [Stint]) -> IO ()
 printMonth (y,m) mp = do
-  putStrLn $ "======= Month: " <> snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> "  ======"
-  sequence_ $ M.mapWithKey printAct mp
+  putStrLn $ "=======  " <> snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> "  ======"
+  mapM_ printAct $ sortBy (comparing (\(k,_)-> (k!!0)==' ')) $ M.toList mp
 
-printAct :: String -> (Int, [Stint]) -> IO ()
-printAct act (tot,stints) = do
+printAct :: (String, (Int, [Stint])) -> IO ()
+printAct (act,(tot,stints)) = do
   if act=="0" then pure () else do
-    putStrLn ("------  Project: " <> act <> " (" <> myFormatDiffTimeLong tot <> ")  ------")
+    putStrLn ("------  " <> act <> " (" <> myFormatDiffTimeLong tot <> ")  ------")
     mapM_ printStint stints 
     putStrLn ""
 
 printStint :: Stint -> IO ()
 printStint (Stint dur (f,t) desc) = 
  let (fd,ft) = (localDay f, localTimeOfDay f) 
-     (td,tt) = (localDay t, localTimeOfDay t) 
-  in if fd /= td then error "Overnight stint" else do
-    putStrLn $ showDate fd <> "  |  " <> showTimeShort ft <> " -> " <> showTimeShort tt <> " = " <> myFormatDiffTimeShort dur <> "  |  " <> desc
+     (_ ,tt) = (localDay t, localTimeOfDay t) 
+  in putStrLn $ showDate fd <> "  |  " <> showTimeShort ft <> " -> " <> showTimeShort tt <> " = " <> myFormatDiffTimeShort dur <> "  |  " <> desc
       
 showDate = formatTime defaultTimeLocale "%a %e"      
 showTimeShort = formatTime defaultTimeLocale "%H:%M"      

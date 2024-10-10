@@ -73,9 +73,7 @@ localTimeToYearMonth :: LocalTime -> (Year, MonthOfYear)
 localTimeToYearMonth t = (\(y,m,_)->(y,m)) $ toGregorian $ localDay t
 
 mkStint :: FromTo -> Stint
-mkStint (FromTo _ (f,t) d) =
-  Stint ((`div` 60) $ floor $ nominalDiffTimeToSeconds $ diffLocalTime t f) (f,t)
-        d
+mkStint (FromTo _ (f,t) d) = Stint ((`div` 60) $ floor $ nominalDiffTimeToSeconds $ diffLocalTime t f) (f,t) d
 
 toMapBy :: forall a k v. Ord k => (a -> k) -> (a -> v) -> [a] -> Map k [v] -- slow but a small collection usually (cos transistions gets cleaned up regularly)
 toMapBy key val as = foldr ( \a mp -> M.insertWith (++) (key a) [val a] mp) M.empty as -- foldr is questionable, but likewise about the sizes, plus it preserves the order

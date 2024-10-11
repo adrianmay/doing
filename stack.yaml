@@ -1,3 +1,2 @@
 snapshot: lts-22.37
 notify-if-nix-on-path: false
-local-bin-path: ~  

@@ -1,10 +1,8 @@
 /usr/bin/did: did doing
-	sudo cp did doing /usr/bin
+	sudo cp doing `stack path --local-bin`
+	stack install
 
-did: did.hs Makefile
-	stack --resolver lts-22.37 ghc \
-		--package split \
-		--package iso8601-time \
-		-- did.hs
+did: Main.hs Makefile
+	cabal build
 
 

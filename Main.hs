@@ -1,12 +1,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+module Main (main) where
+
 import Data.Char
 import Data.List (foldl', sortBy)
 import Data.List.Split (splitWhen)
 import Data.Map.Strict (Map)
 import Data.Maybe (fromMaybe)
 import Data.Ord (comparing)
-import Data.Time.Calendar (Year, MonthOfYear, Day, toGregorian)
+import Data.Time.Calendar (Day, toGregorian)
 import Data.Time.Clock (nominalDiffTimeToSeconds)
 import Data.Time.Format (months, defaultTimeLocale, formatTime)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
@@ -14,6 +16,8 @@ import Data.Time.LocalTime (LocalTime(..), TimeOfDay(..), diffLocalTime)
 import Text.Printf (printf)
 import qualified Data.Map.Strict as M
 
+type MonthOfYear = Int
+type Year = Integer
 
 data Trans = Trans
   { tAct    :: String 

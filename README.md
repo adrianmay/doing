@@ -18,7 +18,9 @@ An activity is billable if its name does not begin with _.
 
 Activity names may contain spaces.
 
-If you enter `doing` with no parameters it'll print a report organised by month, then by activity, with a row for each stint showing the start, the finish, the duration and the details. Activity `0` is excluded from the report. Billable activities are listed first in each month.
+If you enter `doing` with no parameters it'll print a report organised by month, then by activity, with a row for each stint showing the start day, start time, finish time, duration and details. The end day is not shown but you can infer it from the duration, which may extend over multiple days.
+
+Activity `0` is excluded from the report. Billable activities are listed first in each month.
 
 The activity header line shows the total time on that activity in that month and the month header line shows the total for all billable activities.
 

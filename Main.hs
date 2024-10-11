@@ -2,8 +2,10 @@
 
 module Main (main) where
 
-import Data.Char
-import Data.List (foldl', sortBy)
+import Control.Arrow ((&&&))
+import Data.Char 
+import Data.Function (on)
+import Data.List (foldl', sortBy, groupBy)
 import Data.List.Split (splitWhen)
 import Data.Map.Strict (Map)
 import Data.Maybe (fromMaybe)
@@ -40,17 +42,15 @@ data Stint = Stint
 
 main = do
   l :: [String] <- lines <$> getContents 
-  let ps      :: [Trans]
-               = parseTransition <$> l
-      fts     :: [FromTo]
-               = toFromTos ps
-      byMonth :: Map (Year, MonthOfYear) [FromTo]
-               = toMapBy fromToToYearMonth id fts
-      byAct   :: Map (Year, MonthOfYear) (Map String [Stint])
-               = toMapBy fAct mkStint <$> byMonth
-      withTot :: Map (Year, MonthOfYear) (Map String (Int, [Stint]))
-               = M.map (addUp sMinutes) <$> byAct -- broken laziness but who cares - the data is small
-  printAll withTot
+  let ps        :: [Trans]
+                 = parseTransition <$> l
+      fts       :: [FromTo]
+                 = toFromTos ps
+      withMonth :: [((Year, MonthOfYear),FromTo)]
+                 = (fromToToYearMonth &&& id) <$> fts
+      byMonth   :: [  ((Year, MonthOfYear), [FromTo]) ]
+                 = groupInto fst snd withMonth
+  mapM_ (uncurry doMonth) byMonth
   putStrLn ""
 
 
@@ -76,20 +76,29 @@ fromToToYearMonth (FromTo _ (f,t) _) = localTimeToYearMonth f
 localTimeToYearMonth :: LocalTime -> (Year, MonthOfYear)
 localTimeToYearMonth t = (\(y,m,_)->(y,m)) $ toGregorian $ localDay t
 
+groupInto :: forall a k v. Eq k => (a -> k) -> (a -> v) -> [a] -> [(k,[v])] -- assuming already ordered by k
+groupInto key val as =
+  let kvs :: [(k,v)]= (key &&& val) <$> as 
+      gd  :: [[(k,v)]] = groupBy ((==) `on` fst) kvs
+   in map (fst . head &&& map snd) gd   
+      
+
+doMonth :: (Year, MonthOfYear) -> [FromTo] -> IO ()
+doMonth (y,m) fts = 
+  let byAct :: Map String [Stint]
+             = toMapBy fAct mkStint fts
+      withTot :: Map String (Int, [Stint])       
+               = M.map (\l -> ((foldl' (+) 0 (sMinutes <$> l)), l)) byAct
+   in printMonth (y,m) withTot
+  
+
 mkStint :: FromTo -> Stint
 mkStint (FromTo _ (f,t) d) = Stint ((`div` 60) $ floor $ nominalDiffTimeToSeconds $ diffLocalTime t f) (f,t) d
 
-toMapBy :: forall a k v. Ord k => (a -> k) -> (a -> v) -> [a] -> Map k [v] -- slow but a small collection usually (cos transistions gets cleaned up regularly)
-toMapBy key val as = foldr ( \a mp -> M.insertWith (++) (key a) [val a] mp) M.empty as -- foldr is questionable, but likewise about the sizes, plus it preserves the order
+toMapBy :: forall a k v. Ord k => (a -> k) -> (a -> v) -> [a] -> Map k [v]
+toMapBy key val as = foldl' ( \mp a -> M.insertWith (flip (++)) (key a) [val a] mp) M.empty as
 
-addUp :: (a -> Int) -> [a] -> (Int, [a])
-addUp f ss = let t = foldl' (\tot a -> tot + f a) 0 ss in (t,ss)
-
-
-printAll :: Map (Year, MonthOfYear) (Map String (Int, [Stint])) -> IO ()
-printAll mp =  mapM_ (uncurry printMonth) $ sortBy (comparing fst) $ M.toList mp
-
-printMonth :: (Year, MonthOfYear) ->  Map String (Int, [Stint]) -> IO ()
+printMonth :: (Year, MonthOfYear) -> Map String (Int, [Stint]) -> IO ()
 printMonth (y,m) mp = 
   let ams  :: [(String, (Int, [Stint]))] = M.toList mp
       nzms  = filter ((/="0") . fst) ams
@@ -101,6 +110,9 @@ printMonth (y,m) mp =
     putStrLn "-----------------------------------------"
     mapM_ printAct $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
 
+addUp :: (a -> Int) -> [a] -> (Int, [a])
+addUp f ss = let t = foldl' (\tot a -> tot + f a) 0 ss in (t,ss)
+
 printAct :: (String, (Int, [Stint])) -> IO ()
 printAct (act_,(tot,stints)) = do
   let act = if (act_!!0) == '_' then drop 1 act_ <> " (unbillable)" else act_
@@ -109,7 +121,11 @@ printAct (act_,(tot,stints)) = do
   mapM_ printStint stints 
 
 showDurationsLong :: Int -> String
-showDurationsLong minutes = show (minutes `div` 60) <> " hours and " <> show (minutes `mod` 60) <> " minutes"
+showDurationsLong minutes = 
+  let h = minutes `div` 60
+      m = minutes `mod` 60
+      f :: Float = fromIntegral (h*100 + round (((fromIntegral m :: Float) * 100) / 60)) / 100
+   in show h <> " hours and " <> show m <> " minutes (" <> show f <> " hours)"
 
 printStint :: Stint -> IO ()
 printStint (Stint dur (f,t) desc) = 

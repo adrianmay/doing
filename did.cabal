@@ -3,7 +3,7 @@ name:                did
 version:             0.1.0.0
 
 executable did
-  main-is:             Main.hs
+  main-is:             Did.hs
   default-language:    Haskell2010
   build-depends:
     base,

@@ -2,7 +2,7 @@
 	sudo cp doing `stack path --local-bin`
 	stack install
 
-did: Main.hs Makefile
-	cabal build
+did: Did.hs Makefile
+	stack build
 
 

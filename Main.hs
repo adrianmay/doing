@@ -103,15 +103,12 @@ printMonth (y,m) mp =
   let ams  :: [(String, (Int, [Stint]))] = M.toList mp
       nzms  = filter ((/="0") . fst) ams
       bms   = filter ((/='_') . (!!0) . fst) nzms
-      tot  :: Int = fst $ addUp fst $ snd <$> bms
+      tot  :: Int = foldl' (+) 0 $ (fst . snd) <$> bms
   in do
     putStrLn "-----------------------------------------"
     putStrLn $ snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> ": " <> showDurationsLong tot
     putStrLn "-----------------------------------------"
     mapM_ printAct $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
-
-addUp :: (a -> Int) -> [a] -> (Int, [a])
-addUp f ss = let t = foldl' (\tot a -> tot + f a) 0 ss in (t,ss)
 
 printAct :: (String, (Int, [Stint])) -> IO ()
 printAct (act_,(tot,stints)) = do

@@ -124,7 +124,6 @@ doWeek ym alldfts =
       gaps      :: [(Int,Int)]     = ( \ ((da,ma),(db,mb)) -> ((db-da-1)*4+2,mb) ) <$> z
       str       :: String = gaps >>= ( \(spaces,m) -> replicate spaces ' ' <> printf "%04f" (decimalDuration m))
    in putStrLn (printf "%.2f : " (decimalDuration tot) <> str)
-   -- in print gaps
 
 mkStint :: (Int,FromTo) -> Stint
 mkStint (wd, FromTo _ (f,t) d) = Stint ((`div` 60) $ floor $ nominalDiffTimeToSeconds $ diffLocalTime t f) (f,t) d wd

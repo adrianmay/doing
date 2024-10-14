@@ -24,6 +24,8 @@ Activity `0` is excluded from the report. Billable activities are listed first i
 
 The activity header line shows the total time on that activity in that month and the month header line shows the total for all billable activities.
 
+After the body of the report comes a summary of total (non-0) work by day, organised in weekly rows starting with Monday, each row preceded by the week's total.
+
 ## Installation
 
 1. Clone this repo.

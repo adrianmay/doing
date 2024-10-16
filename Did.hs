@@ -62,6 +62,7 @@ moreMain weekly = do
                  = (period &&& id) <$> fts
       byPeriod   :: [((Integer, Int), [(Int,FromTo)])]
                  = groupInto (fstsnd . fst) ( \(hd,ft) -> (thd3 hd,ft)) withPeriod
+  putStrLn " Tot     Mon    Tue    Wed    Thu    Fri    Sat    Sun"
   mapM_ (uncurry (weekly & bool doMonth doWeek)) byPeriod
   putStrLn ""
 
@@ -121,9 +122,9 @@ doWeek ym alldfts =
       dts       :: [(Int, Int)]    = second (foldl' (+) 0) <$> gb
       tot       :: Int             = foldl' (+) 0 (snd <$> dts)
       z         :: [((Int, Int),(Int, Int))] = (zip ((0,0):dts) dts)
-      gaps      :: [(Int,Int)]     = ( \ ((da,ma),(db,mb)) -> ((db-da-1)*4+2,mb) ) <$> z
-      str       :: String = gaps >>= ( \(spaces,m) -> replicate spaces ' ' <> printf "%04f" (decimalDuration m))
-   in putStrLn (printf "%.2f : " (decimalDuration tot) <> str)
+      gaps      :: [(Int,Int)]     = ( \ ((da,ma),(db,mb)) -> ((db-da-1)*7+2,mb) ) <$> z
+      str       :: String = gaps >>= ( \(spaces,m) -> replicate spaces ' ' <> (showDurationShort m))
+   in putStrLn (showDurationShort tot <> ":" <> str)
 
 mkStint :: (Int,FromTo) -> Stint
 mkStint (wd, FromTo _ (f,t) d) = Stint ((`div` 60) $ floor $ nominalDiffTimeToSeconds $ diffLocalTime t f) (f,t) d wd

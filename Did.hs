@@ -2,6 +2,7 @@
 
 module Main (main) where
 
+import Control.Monad (when)
 import Control.Arrow ((&&&), second)
 import Data.Bool (bool)
 import Data.Function (on, (&))
@@ -62,7 +63,7 @@ moreMain weekly = do
                  = (period &&& id) <$> fts
       byPeriod   :: [((Integer, Int), [(Int,FromTo)])]
                  = groupInto (fstsnd . fst) ( \(hd,ft) -> (thd3 hd,ft)) withPeriod
-  putStrLn " Tot     Mon    Tue    Wed    Thu    Fri    Sat    Sun"
+  when weekly $ putStrLn " Tot     Mon    Tue    Wed    Thu    Fri    Sat    Sun"
   mapM_ (uncurry (weekly & bool doMonth doWeek)) byPeriod
   putStrLn ""
 

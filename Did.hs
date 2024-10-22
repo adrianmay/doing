@@ -6,7 +6,7 @@ import Control.Monad (when)
 import Control.Arrow ((&&&), second)
 import Data.Bool (bool)
 import Data.Function (on, (&))
-import Data.List (foldl', sortBy, groupBy)
+import Data.List (foldl', sortBy, groupBy, intersperse)
 import Data.List.Split (splitWhen)
 import Data.Map.Strict (Map)
 import Data.Maybe (fromMaybe)
@@ -39,7 +39,7 @@ data Stint = Stint
   { sMinutes :: Int
   , sInterval :: (LocalTime, LocalTime)
   , sDesc     :: String
-  , sCalday   :: Int
+  , sCalday   :: Int -- day of month or of week
   } 
 
 main :: IO ()
@@ -150,7 +150,7 @@ printAct (act_,(tot,stints)) = do
   let act = if (act_!!0) == '_' then drop 1 act_ <> " (unbillable)" else act_
   putStrLn ""
   putStrLn (act <> ": " <> showDurationsLong tot)
-  mapM_ printStint stints 
+  printStints stints
 
 decimalDuration :: Int -> Float
 decimalDuration minutes = thd3 $ roundDuration minutes
@@ -167,12 +167,25 @@ showDurationsLong minutes =
   let (h,m,f) = roundDuration minutes
    in show h <> " hours and " <> show m <> " minutes (" <> show f <> " hours)"
 
-printStint :: Stint -> IO ()
-printStint (Stint dur (f,t) desc wd) = 
- let (fd,ft) = (localDay f, localTimeOfDay f) 
-     (_ ,tt) = (localDay t, localTimeOfDay t) 
-  in putStrLn $ "   " <> showDate fd <> "  |  " <> showTimeShort ft <> " -> " <> showTimeShort tt <> " = " <> showDurationShort dur <> "  |  " <> desc
-      
+printStints :: [Stint] -> IO ()  
+printStints stints = do -- mapM_ printStint stints 
+  let withDays = ( \st -> (localDay $ fst $ sInterval st, st) ) <$> stints
+      byDay :: Map Day [Stint] = toMapBy fst snd withDays
+  sequence_ $ M.mapWithKey printDaysStints byDay
+  
+   
+printDaysStints :: Day -> [Stint] -> IO ()
+printDaysStints d sts = do
+  let daytot = foldl (+) 0 $ map sMinutes sts
+      line = showDate d <> " | " <> showDurationShort daytot <> " |" <> (concat $ intersperse ";" $ map stintPhrase sts)
+  putStrLn line    
+
+stintPhrase :: Stint -> String
+stintPhrase (Stint _ (st, en) desc _) = 
+  " " <> showTimeShort (localTimeOfDay st) <> 
+  "-" <> showTimeShort (localTimeOfDay en) <> 
+  if not (null desc) then " " <> desc else ""
+
 showDate :: Day -> String      
 showDate = formatTime defaultTimeLocale "%a %e"      
 

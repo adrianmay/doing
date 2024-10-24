@@ -18,7 +18,7 @@ if [ -z "$act" ]; then
     exit 1
   else
     cat ~/.doing/transitions | did m
-    is=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 1`
+    is=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 2`
     cat ~/.doing/transitions | did w
     [ -n "$is" ] && echo "Now doing ${is#_}"
     exit 0
@@ -37,7 +37,8 @@ case "${#acts[@]}" in
   1) 
     msg=`cat -`
     line="${acts[0]}\t`date --date "-$late min" --iso-8601=seconds`\t$msg"
-    was=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 1`
+    line="`date --date "-$late min" --iso-8601=seconds`\t${acts[0]}\t$msg"
+    was=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 2`
     [ -n "$was" ] && echo "Was doing ${was#_}"
     echo -e $line | tee -a ~/.doing/transitions
     exit 0

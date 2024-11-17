@@ -21,8 +21,9 @@ if [ -z "$act" ]; then
     trans=`tail -n 1 ~/.doing/transitions 2> /dev/null`
     is=`echo "$trans" | cut -f 2`
     since=`echo "$trans" | cut -f 1`
+    since1=`date -d "$since"`
     cat ~/.doing/transitions | did w
-    [ -n "$is" ] && echo "Now doing ${is#_} since ${since}"
+    [ -n "$is" ] && echo "Now doing ${is#_} since ${since1}"
     exit 0
   fi
 fi

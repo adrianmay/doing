@@ -148,11 +148,13 @@ printMonth (y,m) mp = -- (y,m) (Map act (tot, [stint]))
     mapM_ printActInMonth $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
 
 printActInMonth :: (String, (Int, [Stint])) -> IO ()
-printActInMonth (act,(tot,stints)) = do
-  let act = if (act!!0) == '_' then drop 1 act <> " (unbillable)" else act
+printActInMonth (act_,(tot,stints)) = do
+  let act = if (act_!!0) == '_' then drop 1 act_ <> " (unbillable)" else act_
   putStrLn ""
   putStrLn (act <> ": " <> showDurationsLong tot)
-  printStints stints
+  printStintsInMonth stints
+
+      -- width = (length stints) * 13 - 2 -- For stint times column
 
 decimalDuration :: Int -> Float
 decimalDuration minutes = thd3 $ roundDuration minutes
@@ -169,30 +171,35 @@ showDurationsLong minutes =
   let (h,m,f) = roundDuration minutes
    in show h <> " hours and " <> show m <> " minutes (" <> show f <> " hours)"
 
-printStints :: [Stint] -> IO ()  
-printStints stints = do -- mapM_ printStint stints 
-  let withDays = ( \st -> (localDay $ fst $ sInterval st, st) ) <$> stints
-      byDay :: Map Day [Stint] = toMapBy fst snd withDays
-  sequence_ $ M.mapWithKey printDaysStints byDay
-  
-   
-printDaysStints :: Day -> [Stint] -> IO ()
-printDaysStints d sts = do
-  let daytot = foldl (+) 0 $ map sMinutes sts
-      line = showDate d <> " | " <> showDurationShort daytot <> " |" <> stintsPhrase sts
-  putStrLn line    
+stintsByDay :: [Stint] -> Map Day [Stint]
+stintsByDay stints =
+  let withDays :: [(Day, Stint)] = ( \st -> (localDay $ fst $ sInterval st, st) ) <$> stints
+   in toMapBy fst snd withDays
 
-stintsPhrase :: [Stint] -> String
-stintsPhrase ss = 
-  let descs = sDesc <$> ss
-      fts = sInterval <$> ss
-   in showIntervals fts <> " | " <> showDescs descs   
+printStintsInMonth :: [Stint] -> IO ()  
+printStintsInMonth stints = do -- mapM_ printStint stints 
+  let byDay :: Map Day [Stint] = stintsByDay stints
+      dayWidths :: [Int] = map (\l -> (length l) * 13 - 2) (M.elems byDay)
+      width :: Int = maximum dayWidths
+  sequence_ $ M.mapWithKey (printDaysStints width) byDay
+  
+printDaysStints :: Int -> Day -> [Stint] -> IO ()
+printDaysStints width d sts = do
+  let daytot = foldl (+) 0 $ map sMinutes sts
+      line = "   " <> showDate d <> " | " <> showDurationShort daytot <> " | " <> stintsPhrase width sts
+  putStrLn line
+
+stintsPhrase :: Int -> [Stint] -> String
+stintsPhrase width ss = 
+  let descs = showDescs $ sDesc <$> ss
+      fts = showIntervals $ sInterval <$> ss
+   in fts <> (replicate (width - length fts) ' ') <> " | " <> descs
 
 showIntervals :: [(LocalTime, LocalTime)] -> String
 showIntervals l = concat $ intersperse ", " (showInterval <$> l)
 
 showDescs  :: [String] -> String
-showDescs = concat . intersperse "; " 
+showDescs = concat . intersperse ". " . filter (not . null)
 
 showInterval :: (LocalTime, LocalTime) -> String
 showInterval (st, en) = showTimeShort (localTimeOfDay st) <> "-" <> showTimeShort (localTimeOfDay en)  

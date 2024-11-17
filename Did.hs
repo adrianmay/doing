@@ -65,7 +65,10 @@ moreMain weekly = do
                  = (period &&& id) <$> fts
       byPeriod   :: [((Integer, Int), [(Int,FromTo)])] -- (y,m),[(day,ft)]
                  = groupInto (fstsnd . fst) ( \(hd,ft) -> (thd3 hd,ft)) withPeriod
-  when weekly $ putStrLn " Tot     Mon    Tue    Wed    Thu    Fri    Sat    Sun"
+  when weekly $ do
+    putStrLn "======================================================"
+    putStrLn ""
+    putStrLn " Tot     Mon    Tue    Wed    Thu    Fri    Sat    Sun"
   mapM_ (uncurry (weekly & bool doMonth doWeek)) byPeriod
   putStrLn ""
 
@@ -142,6 +145,7 @@ printMonth (y,m) mp = -- (y,m) (Map act (tot, [stint]))
       bms   = filter ((/='_') . (!!0) . fst) nzms
       tot  :: Int = foldl' (+) 0 $ (fst . snd) <$> bms
   in do
+    putStrLn ""
     putStrLn "-----------------------------------------"
     putStrLn $ snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> ": " <> showDurationsLong tot
     putStrLn "-----------------------------------------"
@@ -199,7 +203,7 @@ showIntervals :: [(LocalTime, LocalTime)] -> String
 showIntervals l = concat $ intersperse ", " (showInterval <$> l)
 
 showDescs  :: [String] -> String
-showDescs = concat . intersperse ". " . filter (not . null)
+showDescs = concat . map (<> ".") . filter (not . null)
 
 showInterval :: (LocalTime, LocalTime) -> String
 showInterval (st, en) = showTimeShort (localTimeOfDay st) <> "-" <> showTimeShort (localTimeOfDay en)  

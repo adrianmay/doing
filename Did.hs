@@ -21,6 +21,8 @@ import System.Environment (getArgs)
 import Text.Printf (printf)
 import qualified Data.Map.Strict as M
 
+-- Year, Month, Day of Month or
+-- Year, Week, Day of Week
 type HumanDate = (Integer, Int, Int)
 
 data Trans = Trans
@@ -61,7 +63,7 @@ moreMain weekly = do
                  = weekly & bool fromToToYearMonth fromToToYearWeek
       withPeriod :: [(HumanDate,FromTo)]
                  = (period &&& id) <$> fts
-      byPeriod   :: [((Integer, Int), [(Int,FromTo)])]
+      byPeriod   :: [((Integer, Int), [(Int,FromTo)])] -- (y,m),[(day,ft)]
                  = groupInto (fstsnd . fst) ( \(hd,ft) -> (thd3 hd,ft)) withPeriod
   when weekly $ putStrLn " Tot     Mon    Tue    Wed    Thu    Fri    Sat    Sun"
   mapM_ (uncurry (weekly & bool doMonth doWeek)) byPeriod
@@ -106,7 +108,7 @@ groupInto key val as =
    in map (fst . head &&& map snd) gd   
       
 
-doMonth :: (Integer, Int) -> [(Int,FromTo)] -> IO ()
+doMonth :: (Integer, Int) -> [(Int,FromTo)] -> IO ()  -- (y,m) , [(day,ft)]
 doMonth (y,m) (dfts) = 
   let byAct :: Map String [Stint]
              = toMapBy (fAct . snd) mkStint dfts
@@ -134,7 +136,7 @@ toMapBy :: forall a k v. Ord k => (a -> k) -> (a -> v) -> [a] -> Map k [v]
 toMapBy key val as = foldl' ( \mp a -> M.insertWith (flip (++)) (key a) [val a] mp) M.empty as
 
 printMonth :: (Integer, Int) -> Map String (Int, [Stint]) -> IO ()
-printMonth (y,m) mp = 
+printMonth (y,m) mp = -- (y,m) (Map act (tot, [stint]))
   let ams  :: [(String, (Int, [Stint]))] = M.toList mp
       nzms  = filter ((/="0") . fst) ams
       bms   = filter ((/='_') . (!!0) . fst) nzms
@@ -143,11 +145,11 @@ printMonth (y,m) mp =
     putStrLn "-----------------------------------------"
     putStrLn $ snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> ": " <> showDurationsLong tot
     putStrLn "-----------------------------------------"
-    mapM_ printAct $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
+    mapM_ printActInMonth $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
 
-printAct :: (String, (Int, [Stint])) -> IO ()
-printAct (act_,(tot,stints)) = do
-  let act = if (act_!!0) == '_' then drop 1 act_ <> " (unbillable)" else act_
+printActInMonth :: (String, (Int, [Stint])) -> IO ()
+printActInMonth (act,(tot,stints)) = do
+  let act = if (act!!0) == '_' then drop 1 act <> " (unbillable)" else act
   putStrLn ""
   putStrLn (act <> ": " <> showDurationsLong tot)
   printStints stints
@@ -177,14 +179,23 @@ printStints stints = do -- mapM_ printStint stints
 printDaysStints :: Day -> [Stint] -> IO ()
 printDaysStints d sts = do
   let daytot = foldl (+) 0 $ map sMinutes sts
-      line = showDate d <> " | " <> showDurationShort daytot <> " |" <> (concat $ intersperse ";" $ map stintPhrase sts)
+      line = showDate d <> " | " <> showDurationShort daytot <> " |" <> stintsPhrase sts
   putStrLn line    
 
-stintPhrase :: Stint -> String
-stintPhrase (Stint _ (st, en) desc _) = 
-  " " <> showTimeShort (localTimeOfDay st) <> 
-  "-" <> showTimeShort (localTimeOfDay en) <> 
-  if not (null desc) then " " <> desc else ""
+stintsPhrase :: [Stint] -> String
+stintsPhrase ss = 
+  let descs = sDesc <$> ss
+      fts = sInterval <$> ss
+   in showIntervals fts <> " | " <> showDescs descs   
+
+showIntervals :: [(LocalTime, LocalTime)] -> String
+showIntervals l = concat $ intersperse ", " (showInterval <$> l)
+
+showDescs  :: [String] -> String
+showDescs = concat . intersperse "; " 
+
+showInterval :: (LocalTime, LocalTime) -> String
+showInterval (st, en) = showTimeShort (localTimeOfDay st) <> "-" <> showTimeShort (localTimeOfDay en)  
 
 showDate :: Day -> String      
 showDate = formatTime defaultTimeLocale "%a %e"      

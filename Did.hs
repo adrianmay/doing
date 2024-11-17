@@ -75,7 +75,7 @@ parseTransition s =
       then
          let t :: LocalTime = roundLocalTime $ fromMaybe (error $ "Can't parse date: " <> (l!!0)) $ iso8601ParseM (takeWhile (/='+') (l!!0))
           in Trans (l!!1) t (if length l == 3 then l!!2 else "")
-      else error "Bad raw input in transition"
+      else error $ "Bad raw input in transition: " <> s
 
 roundLocalTime (LocalTime d (TimeOfDay h m s)) = LocalTime d (TimeOfDay h m 0)
 

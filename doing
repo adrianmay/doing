@@ -18,9 +18,11 @@ if [ -z "$act" ]; then
     exit 1
   else
     cat ~/.doing/transitions | did m
-    is=`tail -n 1 ~/.doing/transitions 2> /dev/null | cut -f 2`
+    trans=`tail -n 1 ~/.doing/transitions 2> /dev/null`
+    is=`echo "$trans" | cut -f 2`
+    since=`echo "$trans" | cut -f 1`
     cat ~/.doing/transitions | did w
-    [ -n "$is" ] && echo "Now doing ${is#_}"
+    [ -n "$is" ] && echo "Now doing ${is#_} since ${since}"
     exit 0
   fi
 fi

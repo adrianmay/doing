@@ -9,14 +9,14 @@ import Data.Function (on, (&))
 import Data.List (foldl', sortBy, groupBy, intersperse)
 import Data.List.Split (splitWhen)
 import Data.Map.Strict (Map)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Ord (comparing)
 import Data.Time.Calendar (Day, toGregorian)
 import Data.Time.Calendar.WeekDate (toWeekCalendar, FirstWeekType(..), DayOfWeek(..))
-import Data.Time.Clock (nominalDiffTimeToSeconds)
+import Data.Time.Clock (nominalDiffTimeToSeconds, UTCTime(..))
 import Data.Time.Format (months, defaultTimeLocale, formatTime)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
-import Data.Time.LocalTime (LocalTime(..), TimeOfDay(..), diffLocalTime)
+import Data.Time.LocalTime (LocalTime(..), TimeOfDay(..), diffLocalTime, getTimeZone, TimeZone(..))
 import System.Environment (getArgs)
 import Text.Printf (printf)
 import qualified Data.Map.Strict as M
@@ -183,27 +183,48 @@ stintsByDay stints =
 printStintsInMonth :: [Stint] -> IO ()  
 printStintsInMonth stints = do -- mapM_ printStint stints 
   let byDay :: Map Day [Stint] = stintsByDay stints
-      dayWidths :: [Int] = map (\l -> (length l) * 13 - 2) (M.elems byDay)
+      dayWidths :: [Int] = map (\l -> (numDisjointStints l) * 13 - 2) (M.elems byDay)
       width :: Int = maximum dayWidths
   sequence_ $ M.mapWithKey (printDaysStints width) byDay
   
 printDaysStints :: Int -> Day -> [Stint] -> IO ()
 printDaysStints width d sts = do
+  tz <- getTimeZone (UTCTime d $ fromInteger (12*60*60))
   let daytot = foldl (+) 0 $ map sMinutes sts
-      line = "   " <> showDate d <> " | " <> showDurationShort daytot <> " | " <> stintsPhrase width sts
+      line = "   " <> showDate d <> " | " <> showDurationShort daytot <> " | " <> stintsPhrase width (timeZoneName tz) sts
   putStrLn line
 
-stintsPhrase :: Int -> [Stint] -> String
-stintsPhrase width ss = 
+stintsPhrase :: Int -> String -> [Stint] -> String
+stintsPhrase width tz ss = 
   let descs = showDescs $ sDesc <$> ss
       fts = showIntervals $ sInterval <$> ss
-   in fts <> (replicate (width - length fts) ' ') <> " | " <> descs
+   in fts <> " " <> tz <> (replicate (width - length fts) ' ') <> " | " <> descs
 
 showIntervals :: [(LocalTime, LocalTime)] -> String
-showIntervals l = concat $ intersperse ", " (showInterval <$> l)
+showIntervals = showIntervals_ . joinIf intervalsTouch
+
+intervalsTouch :: (LocalTime, LocalTime) -> (LocalTime, LocalTime) -> Maybe (LocalTime, LocalTime)
+intervalsTouch (f1,t1) (f2,t2) = if t1==f2 then Just (f1,t2) else Nothing
+
+numDisjointStints :: [Stint] -> Int
+numDisjointStints [] = 0
+numDisjointStints [_] = 1
+numDisjointStints (s1:s2:ss) = if isJust (intervalsTouch (sInterval s1) (sInterval s2))
+                               then numDisjointStints (s2:ss)
+                               else 1+numDisjointStints (s2:ss)
+
+
+
+joinIf :: (a -> a -> Maybe a) -> [a] -> [a]
+joinIf f [] = []
+joinIf f [a] = [a]
+joinIf f (a1:a2:as) = f a1 a2 & maybe (a1:joinIf f (a2:as)) (\aa -> joinIf f (aa:as))
+
+showIntervals_ :: [(LocalTime, LocalTime)] -> String
+showIntervals_ l = concat $ intersperse ", " (showInterval <$> l)
 
 showDescs  :: [String] -> String
-showDescs = concat . map (<> ".") . filter (not . null)
+showDescs = concat . map (<> ". ") . filter (not . null)
 
 showInterval :: (LocalTime, LocalTime) -> String
 showInterval (st, en) = showTimeShort (localTimeOfDay st) <> "-" <> showTimeShort (localTimeOfDay en)  

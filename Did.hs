@@ -146,9 +146,10 @@ printMonth (y,m) mp = -- (y,m) (Map act (tot, [stint]))
       tot  :: Int = foldl' (+) 0 $ (fst . snd) <$> bms
   in do
     putStrLn ""
-    putStrLn "-----------------------------------------"
+    putStrLn ""
+    putStrLn "###################################################"
     putStrLn $ snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> ": " <> showDurationsLong tot
-    putStrLn "-----------------------------------------"
+    putStrLn "==================================================="
     mapM_ printActInMonth $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
 
 printActInMonth :: (String, (Int, [Stint])) -> IO ()
@@ -173,7 +174,7 @@ roundDuration minutes =
 showDurationsLong :: Int -> String
 showDurationsLong minutes = 
   let (h,m,f) = roundDuration minutes
-   in show h <> " hours and " <> show m <> " minutes (" <> show f <> " hours)"
+   in show h <> ":" <> printf "%.2d" m <> " hours (" <> show f <> " hours)"
 
 stintsByDay :: [Stint] -> Map Day [Stint]
 stintsByDay stints =

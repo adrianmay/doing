@@ -1,10 +1,14 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE BangPatterns, ScopedTypeVariables #-}
 
 module Main (main) where
 
 import Control.Monad (when)
 import Control.Arrow ((&&&), second)
 import Data.Bool (bool)
+import Data.Csv
+import Data.Char (ord)
+import qualified Data.Vector as V
+import Data.Vector (Vector)
 import Data.Function (on, (&))
 import Data.List (foldl', sortBy, groupBy, intersperse)
 import Data.List.Split (splitWhen)
@@ -18,12 +22,18 @@ import Data.Time.Format (months, defaultTimeLocale, formatTime)
 import Data.Time.Format.ISO8601 (iso8601ParseM)
 import Data.Time.LocalTime (LocalTime(..), TimeOfDay(..), diffLocalTime, getTimeZone, TimeZone(..))
 import System.Environment (getArgs)
+import System.IO (openFile, IOMode(..), hGetContents)
 import Text.Printf (printf)
 import qualified Data.Map.Strict as M
+import Data.String.Conversions (cs)
+import Debug.Trace
+
 
 -- Year, Month, Day of Month or
 -- Year, Week, Day of Week
 type HumanDate = (Integer, Int, Int)
+
+type CentsPerHour = Int
 
 data Trans = Trans
   { tAct    :: String 
@@ -48,13 +58,22 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    ["m"] -> moreMain False
-    ["w"] -> moreMain True
+    ["m", as, tr] -> moreMain False tr =<< readRates as
+    ["w", as, tr] -> moreMain True tr =<< readRates as
     _ -> putStrLn "Call with m or w as command line parameter"
 
-moreMain :: Bool -> IO ()
-moreMain weekly = do
-  l :: [String] <- lines <$> getContents 
+readRates :: FilePath -> IO (Map String CentsPerHour)
+readRates acts = do
+   file :: String <- readFile acts
+   let v :: Either String (Vector (String, Int)) = decodeWith (defaultDecodeOptions { decDelimiter = fromIntegral (ord '\t') }) NoHeader $ cs file
+   case v of 
+     Left _ -> error "Can't parse rates"
+     Right !vsi -> pure $ M.fromList $ V.toList vsi
+
+moreMain :: Bool -> FilePath -> Map String CentsPerHour -> IO ()
+moreMain weekly tr !rates = do
+  h <- openFile tr ReadMode
+  l :: [String] <- lines <$> hGetContents h 
   let ps        :: [Trans]
                  = parseTransition <$> l
       fts       :: [FromTo]
@@ -69,7 +88,7 @@ moreMain weekly = do
     putStrLn "======================================================"
     putStrLn ""
     putStrLn " Tot     Mon    Tue    Wed    Thu    Fri    Sat    Sun"
-  mapM_ (uncurry (weekly & bool doMonth doWeek)) byPeriod
+  mapM_ (uncurry (weekly & bool (doMonth rates) doWeek)) byPeriod
   putStrLn ""
 
 
@@ -111,13 +130,13 @@ groupInto key val as =
    in map (fst . head &&& map snd) gd   
       
 
-doMonth :: (Integer, Int) -> [(Int,FromTo)] -> IO ()  -- (y,m) , [(day,ft)]
-doMonth (y,m) (dfts) = 
+doMonth :: Map String CentsPerHour -> (Integer, Int) -> [(Int,FromTo)] -> IO ()  -- (y,m) , [(day,ft)]
+doMonth rates (y,m) (dfts) = 
   let byAct :: Map String [Stint]
              = toMapBy (fAct . snd) mkStint dfts
       withTot :: Map String (Int, [Stint])       
                = M.map (\l -> ((foldl' (+) 0 (sMinutes <$> l)), l)) byAct
-   in printMonth (y,m) withTot
+   in printMonth rates (y,m) withTot
   
 doWeek :: (Integer, Int) -> [(Int,FromTo)] -> IO ()
 doWeek ym alldfts =
@@ -138,8 +157,8 @@ mkStint (wd, FromTo _ (f,t) d) = Stint ((`div` 60) $ floor $ nominalDiffTimeToSe
 toMapBy :: forall a k v. Ord k => (a -> k) -> (a -> v) -> [a] -> Map k [v]
 toMapBy key val as = foldl' ( \mp a -> M.insertWith (flip (++)) (key a) [val a] mp) M.empty as
 
-printMonth :: (Integer, Int) -> Map String (Int, [Stint]) -> IO ()
-printMonth (y,m) mp = -- (y,m) (Map act (tot, [stint]))
+printMonth :: Map String CentsPerHour -> (Integer, Int) -> Map String (Int, [Stint]) -> IO ()
+printMonth rates (y,m) mp = -- (y,m) (Map act (tot, [stint]))
   let ams  :: [(String, (Int, [Stint]))] = M.toList mp
       nzms  = filter ((/="0") . fst) ams
       bms   = filter ((/='_') . (!!0) . fst) nzms
@@ -148,16 +167,22 @@ printMonth (y,m) mp = -- (y,m) (Map act (tot, [stint]))
     putStrLn ""
     putStrLn ""
     putStrLn "###################################################"
-    putStrLn $ snd ((months defaultTimeLocale)!!(m-1)) <> " " <> show y <> ": " <> showDurationsLong tot
+    putStrLn $ monthName m <> " " <> show y <> ": " <> showDurationsLong tot
     putStrLn "==================================================="
-    mapM_ printActInMonth $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
+    mapM_ (printActInMonth True  rates) $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
+    putStrLn "---------------------------------------------------"
+    mapM_ (printActInMonth False rates) $ sortBy (comparing (\(k,_)-> (k!!0)=='_')) nzms
 
-printActInMonth :: (String, (Int, [Stint])) -> IO ()
-printActInMonth (act_,(tot,stints)) = do
+monthName :: Int -> String
+monthName m = snd $ (months defaultTimeLocale)!!(m-1)
+
+printActInMonth :: Bool -> Map String CentsPerHour -> (String, (Int, [Stint])) -> IO ()
+printActInMonth forThem rates (act_,(tot,stints)) = do
+  let rate = fromMaybe 0 $ M.lookup act_ rates
   let act = if (act_!!0) == '_' then drop 1 act_ <> " (unbillable)" else act_
   putStrLn ""
-  putStrLn (act <> ": " <> showDurationsLong tot)
-  printStintsInMonth stints
+  putStrLn (act <> ": " <> showDurationsBilled rate tot)
+  printStintsInMonth forThem stints
 
       -- width = (length stints) * 13 - 2 -- For stint times column
 
@@ -171,35 +196,37 @@ roundDuration minutes =
       f :: Float = fromIntegral (h*100 + round (((fromIntegral m :: Float) * 100) / 60)) / 100
    in (h,m,f)   
 
-showDurationsLong :: Int -> String
-showDurationsLong minutes = 
-  let (h,m,f) = roundDuration minutes
-   in show h <> ":" <> printf "%.2d" m <> " hours (" <> show f <> " hours)"
-
 stintsByDay :: [Stint] -> Map Day [Stint]
 stintsByDay stints =
   let withDays :: [(Day, Stint)] = ( \st -> (localDay $ fst $ sInterval st, st) ) <$> stints
    in toMapBy fst snd withDays
 
-printStintsInMonth :: [Stint] -> IO ()  
-printStintsInMonth stints = do -- mapM_ printStint stints 
+printStintsInMonth :: Bool -> [Stint] -> IO ()  
+printStintsInMonth forThem stints = do -- mapM_ printStint stints 
   let byDay :: Map Day [Stint] = stintsByDay stints
       dayWidths :: [Int] = map (\l -> (numDisjointStints l) * 13 - 2) (M.elems byDay)
       width :: Int = maximum dayWidths
-  sequence_ $ M.mapWithKey (printDaysStints width) byDay
+  sequence_ $ M.mapWithKey (printDaysStints forThem width) byDay
   
-printDaysStints :: Int -> Day -> [Stint] -> IO ()
-printDaysStints width d sts = do
+printDaysStints :: Bool -> Int -> Day -> [Stint] -> IO ()
+printDaysStints forThem width d sts = do
   tz <- getTimeZone (UTCTime d $ fromInteger (12*60*60))
   let daytot = foldl (+) 0 $ map sMinutes sts
-      line = "   " <> showDate d <> " | " <> showDurationShort daytot <> " | " <> stintsPhrase width (timeZoneName tz) sts
+      line = forThem & bool 
+               ("   " <> showDate d <> " | " <> showDurationShort daytot <> " | " <> stintsTimes width (timeZoneName tz) sts)
+               ("\n" <> showDate d <> ": " <> showDurationShort daytot <> "\n" <> stintsTasks width (timeZoneName tz) sts)
   putStrLn line
 
-stintsPhrase :: Int -> String -> [Stint] -> String
-stintsPhrase width tz ss = 
-  let descs = showDescs $ sDesc <$> ss
-      fts = showIntervals $ sInterval <$> ss
-   in fts <> " " <> tz <> (replicate (width - length fts) ' ') <> " | " <> descs
+stintsTimes :: Int -> String -> [Stint] -> String
+stintsTimes width tz ss = 
+  let fts = showIntervals $ sInterval <$> ss
+   in 
+      fts <> " " <> tz <> (replicate (width - length fts) ' ') <> " | " <> 
+      ""
+
+stintsTasks :: Int -> String -> [Stint] -> String
+stintsTasks width tz ss = 
+  showDescs $ sDesc <$> ss
 
 showIntervals :: [(LocalTime, LocalTime)] -> String
 showIntervals = showIntervals_ . joinIf intervalsTouch
@@ -231,10 +258,20 @@ showInterval :: (LocalTime, LocalTime) -> String
 showInterval (st, en) = showTimeShort (localTimeOfDay st) <> "-" <> showTimeShort (localTimeOfDay en)  
 
 showDate :: Day -> String      
-showDate = formatTime defaultTimeLocale "%a %e"      
+showDate = formatTime defaultTimeLocale "%a %e %b"      
 
 showTimeShort :: TimeOfDay -> String 
 showTimeShort = formatTime defaultTimeLocale "%H:%M"      
+
+showDurationsBilled :: CentsPerHour -> Int -> String
+showDurationsBilled rate minutes = 
+  let (h,m,f) = roundDuration minutes
+   in show h <> ":" <> printf "%.2d" m <> " hours @ " <> show (fromIntegral rate/100) <> " = " <> printf "%1.2f" (fromIntegral minutes/60 * (fromIntegral rate/100) :: Double)
+
+showDurationsLong :: Int -> String
+showDurationsLong minutes = 
+  let (h,m,f) = roundDuration minutes
+   in show h <> ":" <> printf "%.2d" m <> " hours (" <> show f <> " hours)"
 
 showDurationShort :: Int -> String
 showDurationShort minutes = printf "%02d" (minutes `div` 60) <> ":" <> printf "%02d" (minutes `mod` 60)
@@ -247,4 +284,7 @@ fstsnd (a,b,_) = (a,b)
 
 thd3 :: (a,b,c) -> c
 thd3 (_,_,c) = c
+
+traceme :: Show a => String -> a -> a
+traceme s !a = trace (s <> show a) a
 

@@ -17,12 +17,12 @@ if [ -z "$act" ]; then
     echo "Enter \`doing <activity> [<minutes-ago>]\` (where <activity> is listed in ~/.doing/acts), then some details, then Ctrl-D to start doing something."
     exit 1
   else
-    cat ~/.doing/transitions | did m
+    did m ~/.doing/acts ~/.doing/transitions
     trans=`tail -n 1 ~/.doing/transitions 2> /dev/null`
     is=`echo "$trans" | cut -f 2`
     since=`echo "$trans" | cut -f 1`
     since1=`date -d "$since"`
-    cat ~/.doing/transitions | did w
+    did w ~/.doing/acts ~/.doing/transitions 
     [ -n "$is" ] && echo "Now doing ${is#_} since ${since1}"
     exit 0
   fi
@@ -30,7 +30,7 @@ fi
 
 late=${l:=0}
 
-readarray -t acts < <(grep $act ~/.doing/acts)
+readarray -t acts < <(cut -d $'\t' -f 1 ~/.doing/acts | grep $act)
 
 case "${#acts[@]}" in
   0) 
